@@ -1,0 +1,70 @@
+Ahora que se probó que reciben y mandan bien con eso, primero intentar cambiarlas por recv() y send(); (OK)
+
+Después modificar serviauth.c para dejarlo como servidor de autenticacion. levantando texto de ahi. Lo users y las pass. (OK)
+
+Agregar un cliente cualquiera al que sería el serviPrincipal. para que éste sea el cliente de _servauth. (falta ensamble)
+
+Crear un "bash" para que pueda ingresar usuario y contraseña. O sea, primero probar el servidor como cliente. Después, probar el servidor como servidor del cliente genérico.(OK)
+
+
+*para el tema del cambio de contraseña, voy a leer y guardar en un array. Despues lo voy a poner en el mismo archivo o lo voy a elimniar y crear uno llenandolo con el array.
+
+/*reemplazar*/
+
+You don't need to create a new file. You can open the original file with r+ and store its contents into an array (following these steps). Then you can use a for loop to scan the array for the line you want to skip, and delete that line. Then you can overwrite the contents of the file using fseek(filename,0,SEEK_SET) (to reset the position indicator of the file) and using a for loop and fprintf to copy the contents from the modified array to the file. (However, with this method you will need to enter an extra blank line in the last for loop to overwrite the last line of the original file.)
+
+
+
+/*para eliminar...*/
+int main () {
+   int ret;
+   FILE *fp;
+   char filename[] = "file.txt";
+
+   fp = fopen(filename, "w");
+
+   fprintf(fp, "%s", "This is tutorialspoint.com");
+   fclose(fp);
+   
+   ret = remove(filename);
+
+   if(ret == 0) {
+      printf("File deleted successfully");
+   } else {
+      printf("Error: unable to delete the file");
+   }
+   
+   return(0);
+}
+
+
+/*otro que no vi*/
+https://codeforwin.org/2018/02/c-program-remove-word-from-file.html
+
+
+
+
+
+21-
+
+*Abrir desde el servidor principal el fileservice.
+
+*Enviar por fifo las instrucciones desde el servidor principal hasta fileservice.
+
+*completar la descarga de una imagen.
+
+*md5sum
+
+*buscar cómo carajo hacer lo del dd sin dd para el pendrive.
+
+
+
+
+
+
+
+
+
+
+
+
