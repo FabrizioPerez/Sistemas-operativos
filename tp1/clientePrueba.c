@@ -1,3 +1,6 @@
+/*este es el cliente que va dentro del servidor principal.
+Su funcionamiento es conectarse con el authService */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +15,7 @@ int validarComando(char *);
 int main(int argc, char *argv[])
 {
 	int sockfd, puerto, n;
-	struct sockaddr_in serv_addr;
+	struct sockaddr_in serv_addr2;
 	struct hostent *server;
 	int terminar = 0;
 	int loginOk = 0;
@@ -31,12 +34,12 @@ int main(int argc, char *argv[])
 
 	server = gethostbyname(argv[1]);
 
-	memset((char *)&serv_addr, '0', sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-	serv_addr.sin_port = htons(puerto);
+	memset((char *)&serv_addr2, '0', sizeof(serv_addr2));
+	serv_addr2.sin_family = AF_INET;
+	bcopy((char *)server->h_addr, (char *)&serv_addr2.sin_addr.s_addr, server->h_length);
+	serv_addr2.sin_port = htons(puerto);
 
-	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+	if (connect(sockfd, (struct sockaddr *)&serv_addr2, sizeof(serv_addr2)) < 0)
 	{
 		perror("conexion");
 		exit(1);
@@ -47,15 +50,13 @@ int main(int argc, char *argv[])
 
 		fflush(stdin);
 
-		printf("Bienvenido, envie file_ls para enviar: ");
+		printf("Bienvenido, nombre de usuario para enviar: ");
 		memset(buffer, '\0', TAM);
 		fgets(buffer, TAM - 1, stdin);
-
+		buffer[strlen(buffer) - 1] = '\0';		//quito el \n del ingreso
 		n = send(sockfd, buffer, strlen(buffer), 0);
 
 		// Verificando si se escribió: fin
-		//	printf("el tamaño del buffer es: %d \n", strlen(buffer));
-		buffer[strlen(buffer) - 1] = '\0';		
 		if (!strcmp("fin", buffer))
 		{
 			terminar = 1;
@@ -67,16 +68,14 @@ int main(int argc, char *argv[])
 		memset(buffer, '\0', TAM);
 		n = recv(sockfd, buffer, TAM, 0);
 
-//		buffer[strlen(buffer) - 1] = '\0'; 
-												/*creo que el \n lo tengo que leer o tener en cuenta
-												cuando el ingreso fue de consola, es decir, con un enter.
-												si no, fijate que lo manda asi nomas. O sea, mande derecho*/
+												
 		if (!strcmp("ingreseContra", buffer))
 		{
 			printf("%s\n", buffer);
 			memset(buffer, '\0', TAM);
 			fgets(buffer, TAM - 1, stdin);
-			n = send(sockfd, buffer, strlen(buffer), 0);
+			buffer[strlen(buffer) - 1] = '\0';
+			n = send(sockfd, buffer, strlen(buffer), 0);	//envio de contrasenia
 		}
 		else
 		{
@@ -209,7 +208,7 @@ int validarComando(char *comando)
 		strcpy(aux3, ptr);				//aux 3 se queda con el nombre de la imagen
 		strcat(comando, " ");			//espacio para imitar el comando inicial
 		strcat(comando, aux3);			//le vuelvo a agregar ubuntu al final
-		printf("ahora comando es: %s de tamanio %d\n", comando, strlen(comando));
+		printf("ahora comando es: %s de tamanio %ld\n", comando, strlen(comando));
 
 		//printf("aux 2 tiene: %s\n", aux2);
 		return 5;

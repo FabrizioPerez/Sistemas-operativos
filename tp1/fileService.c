@@ -49,16 +49,9 @@ int main(int argc, char *argv[])
     fileLen = ftell(fich); // Obtiene el tamanio del archivo. Por las dudas para usar en algun lado
     fseek(fich, 0, SEEK_SET);
     printf("El tamaño total del archivo a enviar es: %d", fileLen);
-/*
-    FILE *fptr2 = fopen("/home/fabrizio/Escritorio/materias/So_archivos/imagenes2/fabripiola2.iso", "wb");
-    if (fptr2 == NULL)
-    {
-        perror("hubo problemas abriendo el segundo archivo ");
-        exit(1);
-    }
-*/
-    servFd = socket(AF_INET, SOCK_STREAM, 0); //definicion del socket;
 
+
+    servFd = socket(AF_INET, SOCK_STREAM, 0); //definicion del socket;
     serv_addr = calloc(1, sizeof(struct sockaddr_in)); //alloca e inicialiaza un lugar de memoria de ese tamaño. Devuelve puntero.
     serv_addr->sin_family = AF_INET;
     serv_addr->sin_port = htons((uint16_t)atoi(argv[1]));
@@ -88,7 +81,6 @@ int main(int argc, char *argv[])
         //checkear errores de accept. Retorna -1 en posible error.
 
         //si se produjo la conexión, espera por un usuario.
-
         tamMjeRecibido = recv(newservFd, mjeRecibido, (size_t)200, 0);
 
         strcpy(mjeManipulable, mjeRecibido);

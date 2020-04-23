@@ -7,12 +7,12 @@
 #include <netinet/ip.h> /* superset of previous */
 #include <unistd.h>
 #include <errno.h>
-
-#define TAM 256
+#include "vars.h"
 
 int verificarPass(char *, char *, int);
 int reemplaPass(char *, char *, char *);
 char *buscarImagenes();
+int bloquearUsuario(char *);
 
 int main(int argc, char *argv[])
 {
@@ -29,26 +29,20 @@ int main(int argc, char *argv[])
   char mjeManipulable[500];
   int auxint = 2;
   int tamBuffer;
-  char usuario1[] = "fabry2\n";
-  char contra1[] = "fabry123\n";
-  char usuario2[] = "fabrizio perez\n";
   char fin[] = "fin";
-  char bienvenido[] = "Bienvenido, ingrese usuario:\n";
-  char pedirContrasenia[] = "ingreseContra\n";
+  char pedirContrasenia[] = "ingreseContra";
   char pedirUsuario[] = "ingreseUsu\n";
   char contraOk[] = "contraok";
   char operaciones[] = "1: recibir recibir saludo. 2: salir\n";
-  char cerrando[] = "cerrar";
+  char userBloqueado[] = "userBloqueado";
 
   char delim[] = " ;";
   char *splitAux;
   char *userEncontrado;
   char *passEncontrada;
-  char usuario[] = "jenny"; //serian los que entran por socket
-  char contra[] = "jenny123";
   int i = 0;
   int encontrado = 0;
-  int chancesToLog = 3;
+  int chancesToLog = CHANCESTOLOG;
   int verificado = 0;
   int passOk = 0;
   int recibeInstrucciones = 1;
@@ -59,7 +53,7 @@ int main(int argc, char *argv[])
   char *palabra3 = (char *)malloc(TAM);
   char *palabra4 = (char *)malloc(TAM);
 
-  char *imagesLs = (char *)malloc(2*(TAM));
+  char *imagesLs = (char *)malloc(2 * (TAM));
 
   servFd = socket(AF_INET, SOCK_STREAM, 0); //definicion del socket;
 
@@ -73,7 +67,7 @@ int main(int argc, char *argv[])
 
   if (var < 0)
   {
-    perror("no se bindeo bien: ");
+    perror("authservice log: no se bindeo bien: ");
     exit(-1);
   }
 
@@ -112,16 +106,9 @@ int main(int argc, char *argv[])
     tamMjeRecibido = recv(newservFd, mjeRecibido, (size_t)200, 0);
 
     printf("---------- \n");
-    printf("tamBuffer es: %d \n", strlen(mjeRecibido));
-    printf("tam mje recibido: %d \n", tamMjeRecibido);
-    printf("mensaje: %s \n", mjeRecibido);
+    printf("authService log: mensaje recibido: %s \n", mjeRecibido);
 
     strcpy(mjeManipulable, mjeRecibido);
-    mjeManipulable[strlen(mjeManipulable) - 1] = '\0'; /****************/
-
-    printf("tamBuffer es: %d \n", strlen(mjeManipulable));
-    printf("tam mje recibido: %d \n", tamMjeRecibido);
-    printf("mensaje: %s \n", mjeManipulable);
 
     /*acabo de recibir un nombre de usuario, lo busco en base de datos y veo si existe.
       tambien obtengo su contraseña para una posterior llamada*/
@@ -136,7 +123,7 @@ int main(int argc, char *argv[])
       ptr = strtok(NULL, delim);
 
       printf("palabra encontrada: %s \n", splitAux);
-      printf("tam palabra es: %d \n", strlen(splitAux));
+      printf("tam palabra es: %ld \n", strlen(splitAux));
 
       if ((!strcmp(mjeManipulable, splitAux)) && ((i % 2) == 0))
       { /*lo ultimo checkea que sea par, es decir, que sea un user y no una pass.*/
@@ -160,6 +147,7 @@ int main(int argc, char *argv[])
     {
       do
       {
+        //El blucle envia "ingreseContra" 3 veces. Al 3er intento mal ingresado, bloquea usuario
         printf("auth-serv log: usuario valido. Esperando contrasenia...\n");
         memset(&mjeRecibido, 0, sizeof(mjeRecibido));       // limpio el buffer para recibir
         memset(&mjeManipulable, 0, sizeof(mjeManipulable)); // limpio el buffer para recibir
@@ -168,17 +156,17 @@ int main(int argc, char *argv[])
         /*se recibio contrasenia. Se la verifica:*/
         tamMjeRecibido = recv(newservFd, mjeRecibido, (size_t)200, 0);
 
-        strncpy(mjeManipulable, mjeRecibido, (strlen(mjeRecibido) - 1));
-        printf("tamBuffer es: %d \n", strlen(mjeManipulable));
-        printf("tam mje recibido: %d \n", tamMjeRecibido);
-        printf("mensaje: %s \n", mjeManipulable);
+        strcpy(mjeManipulable, mjeRecibido);
+        printf("contrasenia recibida: %s \n", mjeManipulable);
 
         passOk = verificarPass(passEncontrada, mjeManipulable, encontrado);
         chancesToLog = chancesToLog - 1;
         if (chancesToLog == 0)
         {
           printf("auth-serv log: usuario anulado. Terminando programa...\n");
-          close(newservFd); //no deberia terminar programa, sino cerrar el cliente
+          n = send(newservFd, userBloqueado, strlen(userBloqueado), 0);
+          close(newservFd); //ver el tema de anular usuario
+          bloquearUsuario(userEncontrado);
         }
       } while ((passOk == 0) && (chancesToLog));
     }
@@ -203,21 +191,21 @@ int main(int argc, char *argv[])
       char *comSplit = strtok(mjeRecibido, delim2); //tengo la primera palabra
       strcpy(palabra1, comSplit);
       palabra1[strlen(palabra1) - 1] = '\0';
-      printf("palabra1 es: %s de tamano: %d\n", palabra1, strlen(palabra1));
+      printf("palabra1 es: %s de tamano: %ld\n", palabra1, strlen(palabra1));
       if ((comSplit = strtok(NULL, delim2)) != NULL)
       {
         strcpy(palabra2, comSplit);
-        printf("palabra2 es: %s de tamano: %d\n", palabra2, strlen(palabra2));
+        printf("palabra2 es: %s de tamano: %ld\n", palabra2, strlen(palabra2));
       }
-      if (comSplit = strtok(NULL, delim2) != NULL)
+      if ((comSplit = strtok(NULL, delim2)) != NULL)
       {
         strcpy(palabra3, comSplit);
-        printf("palabra3 es: %s de tamano: %d\n", palabra3, strlen(palabra3));
+        printf("palabra3 es: %s de tamano: %ld\n", palabra3, strlen(palabra3));
       } //obtuve tercera palabra recibida. Es para el caso de recibit options despues
-      if (comSplit = strtok(NULL, delim2) != NULL)
+      if ((comSplit = strtok(NULL, delim2)) != NULL)
       {
         strcpy(palabra4, comSplit);
-        printf("palabra4 es: %s de tamano: %d\n", palabra4, strlen(palabra4));
+        printf("palabra4 es: %s de tamano: %ld\n", palabra4, strlen(palabra4));
       } //obtuve cuarta palabra recibida
 
       if (strncmp(palabra1, "file_down", strlen(palabra1)) == 0 || (strncmp(palabra1, "File_down", strlen(palabra1)) == 0))
@@ -255,11 +243,11 @@ int main(int argc, char *argv[])
         memset(&mjeRecibido, 0, sizeof(mjeRecibido));       //entonces limpio el buffer para recibir
         memset(&mjeManipulable, 0, sizeof(mjeManipulable)); // limpio el buffer para recibir
 
-        printf("auth-serv log: la pass actual es: %s de tamano: %d\n", passEncontrada, strlen(passEncontrada));
-        printf("auth-serv log: pertenece al user: %s de tamano: %d\n", userEncontrado, strlen(userEncontrado));
-        printf("auth-serv log: deseo cambiarla por: %s de tamano: %d\n", palabra2, strlen(palabra2));
+        printf("auth-serv log: la pass actual es: %s de tamano: %ld\n", passEncontrada, strlen(passEncontrada));
+        printf("auth-serv log: pertenece al user: %s de tamano: %ld\n", userEncontrado, strlen(userEncontrado));
+        printf("auth-serv log: deseo cambiarla por: %s de tamano: %ld\n", palabra2, strlen(palabra2));
         palabra2[strlen(palabra2) - 1] = '\0'; /******************/
-        printf("auth-serv log: ahora deseo cambiarla por: %s de tamano: %d\n", palabra2, strlen(palabra2));
+        printf("auth-serv log: ahora deseo cambiarla por: %s de tamano: %ld\n", palabra2, strlen(palabra2));
         printf("auth-serv log: el arreglo completo es:\n %s\n", usypas);
 
         if (reemplaPass(palabra2, passEncontrada, userEncontrado))
@@ -278,7 +266,7 @@ int main(int argc, char *argv[])
       printf("limpiando buffer...\n");
       printf("\n");
       memset(&mjeRecibido, 0, sizeof(mjeRecibido));
-      printf("tamBuffer es: %d \n", strlen(mjeRecibido));
+      printf("tamBuffer es: %ld \n", strlen(mjeRecibido));
       printf("buffer: %s \n", mjeRecibido);
       printf("---------- \n");
 
@@ -345,7 +333,7 @@ int reemplaPass(char *nuevaPass, char *viejaPass, char *usuario)
       break; //al llegar al final, se sale.
     }
     printf("palabra encontrada: %s \n", splitAux);
-    printf("tam palabra es: %d \n", strlen(splitAux));
+    printf("tam palabra es: %ld \n", strlen(splitAux));
     strcpy(passAux, pn); //en splitaux va el user encontrado
 
     if ((!strcmp(usuario, splitAux)) && ((!strcmp(viejaPass, passAux)) && ((i % 2) == 0)))
@@ -420,7 +408,7 @@ char *buscarImagenes()
   char *splitAux = (char *)malloc(TAM);
   char *md5Aux = (char *)malloc(TAM);
   char *auxBuffer = (char *)malloc(TAM);
-  char *arregloFinal = (char *)malloc(2* (TAM));
+  char *arregloFinal = (char *)malloc(2 * (TAM));
 
   images = fopen("/home/fabrizio/Escritorio/materias/so/tp1/images", "r+");
   if (images == NULL)
@@ -440,7 +428,7 @@ char *buscarImagenes()
     printf("%d: '%s'\n", i, pn);
     strcpy(splitAux, pn);                          //en splitaux va la imagen encontrada
     printf("palabra encontrada: %s \n", splitAux); //o sea, el checksum encontrado
-    printf("tam palabra es: %d \n", strlen(splitAux));
+    printf("tam palabra es: %ld \n", strlen(splitAux));
     pn = strtok(NULL, delim);
     if (pn == NULL)
     {
@@ -449,7 +437,7 @@ char *buscarImagenes()
     }
     strcpy(md5Aux, pn);                          //en splitaux a imagen encontrado
     printf("palabra encontrada: %s \n", md5Aux); //o sea, el checksum encontrado
-    printf("tam palabra es: %d \n", strlen(md5Aux));
+    printf("tam palabra es: %ld \n", strlen(md5Aux));
 
     if ((i % 2) == 0)
     {
@@ -464,6 +452,12 @@ char *buscarImagenes()
 
   printf("el arreglo al final es:\n %s", arregloFinal);
   return arregloFinal;
+}
+
+int bloquearUsuario(char * usuario)
+{
+  printf("se bloqueo exitosamente el usuario\n");
+  return 1;
 }
 
 /*

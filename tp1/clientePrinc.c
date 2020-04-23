@@ -5,15 +5,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#define TAM 256
-
+#include "vars.h"
 
 int main(int argc, char *argv[])
 {
 	int sockfd, puerto, n;
 	struct sockaddr_in serv_addr;
 	struct hostent *server;
-	int terminar = 0;
+	int chancesToLog = CHANCESTOLOG;
+	int logOk = 0;
 
 	char buffer[TAM];
 	if (argc < 3)
@@ -40,46 +40,72 @@ int main(int argc, char *argv[])
 
 	while (1)
 	{
-		
+
 		fflush(stdin);
 
-		printf("Ingrese el mensaje a transmitir: ");
+		printf("Bienvenido. Ingrese el usuario: ");
 		memset(buffer, '\0', TAM);
 		fgets(buffer, TAM - 1, stdin);
+		buffer[strlen(buffer) - 1] = '\0';
 
-//		n = write(sockfd, buffer, strlen(buffer));
-	    n = send(sockfd, buffer, strlen(buffer), 0);
-
+		n = send(sockfd, buffer, strlen(buffer), 0); //envio usuario
 
 		// Verificando si se escribió: fin
-		printf("el tamaño del buffer es: %d \n", strlen(buffer));
-	
+
 		buffer[strlen(buffer) - 1] = '\0';
 		if (!strcmp("fin", buffer))
 		{
-			terminar = 1;
 			printf("ponemos terminar en 1 \n");
 		}
 
 		memset(buffer, '\0', TAM);
-		  
-		n =  recv(sockfd, buffer, TAM, 0);
+		n = recv(sockfd, buffer, TAM, 0); //recibo respuesta del authservice
 
-	//	n = read(sockfd, buffer, TAM);
-
-		buffer[strlen(buffer) - 1] = '\0';
-		if (!strcmp("fabrizio perez", buffer))
+		if (!strcmp("ingreseContra", buffer))
 		{
-			terminar = 1;
-			printf("var terminar en 1 \n");
+			do
+			{
+				printf("Ingrese la contrasenia: ");
+				memset(buffer, '\0', TAM);
+				fgets(buffer, TAM - 1, stdin);
+				buffer[strlen(buffer) - 1] = '\0';
+				n = send(sockfd, buffer, strlen(buffer), 0);
+
+				memset(buffer, '\0', TAM);
+				n = recv(sockfd, buffer, TAM, 0);
+
+				if (!strcmp("contraok", buffer))
+				{
+					printf("Logueo correcto. ingrese la operacion: \n");
+					logOk = 1;
+				}
+				else if (!strcmp("ingreseContra", buffer))
+				{
+					printf("Contrasenia incorrecta. Reingrese, por favor \n");
+				}
+				chancesToLog = chancesToLog - 1;  
+			} while (chancesToLog && (logOk == 0));
 		}
-
-		printf("Respuesta: %s\n", buffer);
-		if (terminar)
+		else
 		{
+			printf("el usuario no era valido: %s", buffer);
 			printf("Finalizando ejecución\n");
 			exit(0);
 		}
+
+		if ((chancesToLog == 0) && (logOk == 0))
+		{
+
+			printf("El usuario ha sido bloqueado por ingresar mal\n");
+			printf("la contrasenia %d veces...\n", CHANCESTOLOG);
+		}
+
+		printf("Logueo correcto. ingrese la operacion: \n");
+		memset(buffer, '\0', TAM);
+		fgets(buffer, TAM - 1, stdin);
+		buffer[strlen(buffer) - 1] = '\0';
+		n = send(sockfd, buffer, strlen(buffer), 0);	//envio de la operacion
+
 		//printf( "vamos a cerrar el socket...\n" );
 		//fclose(sockfd);
 	}
