@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   char mjeRecibido2[TAM];
   int auxint = 2;
   int tamBuffer;
-  char fin[] = "fin";
+  int fin = 0;
 
   ///////////
 
@@ -34,12 +34,11 @@ int main(int argc, char *argv[])
   struct sockaddr_in serv_addr2;
   struct hostent *server;
   int terminar = 0;
-  int loginOk = 0;
   int retry = 3;
   int operacion = 0;
   char buffer[TAM];
   int chancesToLog = CHANCESTOLOG + 1;
-  int passOk = 0;
+  int conectado = 0;
 
   ////////
 
@@ -104,10 +103,6 @@ int main(int argc, char *argv[])
       printf("serviPrinc log: proceso padre que ejecuta el princservice: %d \n", chpid);
       printf("serviPrinc log: proceso padre de id: %d \n", getpid());
 
-      // wait(10); //para evitar problemas en la creacion del cliente de socket
-      //creo un socket con conexion a localhost y el puerto
-      //que se envio al authservice para conectarme con éste.
-
       puerto = atoi("5565");
       sockfd = socket(AF_INET, SOCK_STREAM, 0);
       server = gethostbyname("localhost");
@@ -117,15 +112,21 @@ int main(int argc, char *argv[])
       bcopy((char *)server->h_addr, (char *)&serv_addr2.sin_addr.s_addr, server->h_length);
       serv_addr2.sin_port = htons(puerto);
 
-      if (connect(sockfd, (struct sockaddr *)&serv_addr2, sizeof(serv_addr2)) < 0)
+      do
       {
-        perror("serviPrinc log: conexion");
-        exit(1);
-      }
-      else
-      {
-        printf("serviPrinc log: se logro la conexion con authservice  \n");
-      }
+        if (connect(sockfd, (struct sockaddr *)&serv_addr2, sizeof(serv_addr2)) < 0)
+        {
+          //intenta la conexion hasta que la logra. Con esto se evita el
+          //conexion refused. Intenta hasta que el otro socket esté listo.
+          //perror("serviPrinc log: conexion");
+        }
+        else
+        {
+          printf("serviPrinc log: se logro la conexion con authservice  \n");
+          conectado = 1;
+        }
+
+      } while (conectado == 0);
 
       //si la creacion fue exitosa, le mando el user recibido al auth service
       n = send(sockfd, mjeRecibido, strlen(mjeRecibido), 0);
@@ -134,38 +135,42 @@ int main(int argc, char *argv[])
       n = recv(sockfd, mjeRecibido, TAM, 0);
       if (!strcmp("ingreseContra", mjeRecibido))
       {
+
+        n = send(newservFd, mjeRecibido, strlen(mjeRecibido), 0); //envio al cliente el pedido de password;
+
         do
         {
-          //en este caso, el auth service confirma que el usuario es valido
-          //y solicita su contrasenia.
-          printf("ServiPrinc log: user ok. solicitando al cliente la pass");
-
-          n = send(newservFd, mjeRecibido, strlen(mjeRecibido), 0); //envio al cliente el pedido de password;
+          //queda en un bucle donde se recibe desde el cliente algo,
+          //se envía al auth service, y a su respuesta se la envia al clientes.
+          //esto recién finaliza si el cliente envía "fin"
           memset(mjeRecibido, '\0', TAM);
           tamMjeRecibido = recv(newservFd, mjeRecibido, (size_t)200, 0); //recibo la password desde el cliente
-
+          if((strcmp(mjeRecibido, "exit")== 0) || (strcmp(mjeRecibido, "Exit")== 0)){
+              fin = 1;
+          }
           n = send(sockfd, mjeRecibido, strlen(mjeRecibido), 0); //envio de contrasenia al authservice
           memset(mjeRecibido, '\0', TAM);
           n = recv(sockfd, mjeRecibido, TAM, 0); //respuesta del authservice
-
-          if (!strcmp("contraok", mjeRecibido))
-          {
-            //el authservice avisa que la contraseña es correcta.
-            //cierro el ciclo de autenticacion y espero instrucciones
-            passOk = 1;
-            n = send(newservFd, mjeRecibido, strlen(mjeRecibido), 0); //envio al cliente la respuesta del authser
-          }
-         chancesToLog = chancesToLog -1;
-        } while ((passOk == 0) && (chancesToLog));
+          n = send(newservFd, mjeRecibido, strlen(mjeRecibido), 0); //envio al cliente la respuesta del authser
+        } while (!(fin));
       }
       else
       {
         printf("lo que llego fue: %s \n", buffer);
       }
 
-      //ahora se esperan instrucciones
+      //bloque que recibe instruccion del cliente, la pasa authservice
+      //y a su respuesta la envía al cliente.
+
+      /*
       memset(mjeRecibido, '\0', TAM);
       tamMjeRecibido = recv(newservFd, mjeRecibido, (size_t)200, 0); //esperando instruccion del cliente.
+      n = send(sockfd, mjeRecibido, strlen(mjeRecibido), 0);         //envio instr al authservice
+      memset(mjeRecibido, '\0', TAM);
+      n = recv(sockfd, mjeRecibido, TAM, 0); //respuesta del authservice
+      n = send(newservFd, mjeRecibido, strlen(mjeRecibido), 0); //envio al cliente la respuesta del authser
+    
+*/
     }
 
     /*
