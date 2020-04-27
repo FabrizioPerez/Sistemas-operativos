@@ -104,8 +104,7 @@ int main(int argc, char *argv[])
   printf("The current date/time is: %s", asctime(timeinfo));
   strcpy(fechaString, asctime(timeinfo));
   printf("The current date is: %s", fechaString);
-
-
+	//voy a usar esteo para lo de la fecha
   while (1)
   {
 
